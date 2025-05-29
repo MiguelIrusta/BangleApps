@@ -1,1 +1,6 @@
-First version 0.02 of Pleez
+First version 0.03 of Pleez
+/*********************************/
+Version 0.03:
+  *  Change the app way of working: added a popo up when init to let the user know that is running in backplain.
+  *  The app only is show when a message appears
+  *  The app goes to backplain when "FinTimer" message arrives
