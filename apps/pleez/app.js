@@ -1,12 +1,31 @@
 // Variable para almacenar el último mensaje recibido
 let lastMessage = "";
 
+// Mostrar mensaje de inicio (popup)
+function showStartupMessage() {
+  g.clear();
+  g.setColor(0, 0, 1); // Fondo azul
+  g.fillRect(0, 0, 176, 176);
+  g.setColor(1, 1, 1); // Texto blanco
+  g.setFont("6x8", 2);
+  g.drawString("Pleez corriendo en segundo plano", 10, 70);
+  g.flip();
+  setTimeout(function () {
+    Bangle.showClock(); // Volver al reloj
+  }, 2000);
+}
+
 // Función para manejar mensajes recibidos desde la app del teléfono
 function onGB(event) {
-  if (event.t === "notify") { // Eliminamos la verificación de "Gadgetbridge" ya que usas tu propia app
-    lastMessage = event.msg; // Guardar el mensaje
-    redrawScreen(); // Redibujar todo
-    console.log("Mensaje recibido:", event.msg); // Depuración
+  if (event.t === "notify") {
+    if (event.msg === "FinTimer") {
+      console.log("Recibido FinTimer, volviendo al reloj");
+      Bangle.showClock(); // Volver al reloj
+    } else {
+      lastMessage = event.msg; // Guardar el mensaje
+      redrawScreen(); // Redibujar todo
+      console.log("Mensaje recibido:", event.msg); // Depuración
+    }
   }
 }
 
@@ -16,10 +35,10 @@ function redrawScreen() {
   g.setColor(0, 0, 1); // Fondo azul
   g.fillRect(0, 0, 176, 176);
 
-  // Mostrar mensaje en la parte superior
+  // Mostrar mensaje completo en la parte superior
   g.setColor(1, 1, 1); // Texto blanco
   g.setFont("6x8", 2); // Fuente para el mensaje
-  g.drawString("Señal: " + lastMessage, 10, 10); // Mensaje en y=10
+  g.drawString(lastMessage, 10, 10); // Mostrar solo el mensaje
 
   // Dibujar botones (en la parte inferior)
   // Botón 1: Ok (verde)
@@ -70,10 +89,10 @@ Bangle.on("touch", function (button, xy) {
         166,
         isOkButton
       );
-      // Enviar mensaje a la app después de un pequeño retraso
+      // Enviar mensaje a la app y volver al reloj después de un retraso
       setTimeout(function () {
         Bluetooth.println(JSON.stringify({ t: "notify", msg: message }));
-        redrawScreen(); // Redibujar para restaurar los botones
+        Bangle.showClock(); // Volver al reloj
       }, 200); // Retraso de 200ms para ver el feedback
     } else {
       console.log("Toque fuera de los botones"); // Depuración
@@ -83,9 +102,12 @@ Bangle.on("touch", function (button, xy) {
   }
 });
 
-// Inicializar el manejador de eventos
+// Configurar la app para segundo plano
+Bangle.setUI("none"); // No toma control de la UI
 GB = onGB; // Registrar el manejador de eventos
-redrawScreen(); // Inicializar la interfaz
+
+// Mostrar mensaje de inicio
+showStartupMessage();
 
 // Asegurar que la Bangle.js esté en modo conectable
 NRF.setAdvertising({}, { connectable: true });
