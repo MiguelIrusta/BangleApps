@@ -11,7 +11,7 @@ function showStartupMessage() {
   g.drawString("Pleez corriendo en segundo plano", 10, 70);
   g.flip();
   setTimeout(function () {
-    Bangle.showClock(); // Volver al reloj
+    redrawScreen(); // Mostrar la interfaz principal de la app
   }, 2000);
 }
 
@@ -23,7 +23,6 @@ function onGB(event) {
       Bangle.showClock(); // Volver al reloj
     } else {
       lastMessage = event.msg; // Guardar el mensaje
-      Bangle.loadWidgets(); // Cargar widgets para mostrar la interfaz
       redrawScreen(); // Redibujar todo
       console.log("Mensaje recibido:", event.msg); // Depuración
     }
@@ -90,10 +89,10 @@ Bangle.on("touch", function (button, xy) {
         166,
         isOkButton
       );
-      // Enviar mensaje a la app y volver al reloj después de un retraso
+      // Enviar mensaje a la app y redibujar la pantalla
       setTimeout(function () {
         Bluetooth.println(JSON.stringify({ t: "notify", msg: message }));
-        Bangle.showClock(); // Volver al reloj
+        redrawScreen(); // Restaurar la interfaz
       }, 200); // Retraso de 200ms para ver el feedback
     } else {
       console.log("Toque fuera de los botones"); // Depuración
@@ -103,12 +102,9 @@ Bangle.on("touch", function (button, xy) {
   }
 });
 
-// Configurar la app para segundo plano
-Bangle.setUI("none"); // No toma control de la UI
+// Inicializar el manejador de eventos
 GB = onGB; // Registrar el manejador de eventos
-
-// Mostrar mensaje de inicio
-setTimeout(showStartupMessage, 100); // Retraso para evitar conflictos
+showStartupMessage(); // Mostrar mensaje de inicio
 
 // Asegurar que la Bangle.js esté en modo conectable
 NRF.setAdvertising({}, { connectable: true });
