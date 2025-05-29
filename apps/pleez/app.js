@@ -1,33 +1,12 @@
 // Variable para almacenar el último mensaje recibido
 let lastMessage = "";
 
-// Mostrar mensaje de inicio (popup)
-function showStartupMessage() {
-  g.clear();
-  g.setColor(0, 0, 1); // Fondo azul
-  g.fillRect(0, 0, 176, 176);
-  g.setColor(1, 1, 1); // Texto blanco
-  g.setFont("6x8", 2);
-  g.drawString("App corriendo en segundo plano", 10, 70);
-  g.flip();
-  // Volver al reloj después de 2 segundos
-  setTimeout(function () {
-    Bangle.showClock();
-  }, 2000);
-}
-
-// Función para manejar mensajes recibidos desde Gadgetbridge
+// Función para manejar mensajes recibidos desde la app del teléfono
 function onGB(event) {
-  if (event.t === "notify" && event.src === "Gadgetbridge") {
-    if (event.msg === "FinTimer") {
-      console.log("Recibido FinTimer, volviendo al reloj");
-      Bangle.showClock(); // Volver al reloj
-    } else {
-      lastMessage = event.msg; // Guardar el mensaje
-      Bangle.loadWidgets(); // Cargar widgets para mostrar la app
-      redrawScreen(); // Redibujar todo
-      console.log("Mensaje recibido:", event.msg); // Depuración
-    }
+  if (event.t === "notify") { // Eliminamos la verificación de "Gadgetbridge" ya que usas tu propia app
+    lastMessage = event.msg; // Guardar el mensaje
+    redrawScreen(); // Redibujar todo
+    console.log("Mensaje recibido:", event.msg); // Depuración
   }
 }
 
@@ -37,10 +16,10 @@ function redrawScreen() {
   g.setColor(0, 0, 1); // Fondo azul
   g.fillRect(0, 0, 176, 176);
 
-  // Mostrar mensaje completo en la parte superior
+  // Mostrar mensaje en la parte superior
   g.setColor(1, 1, 1); // Texto blanco
   g.setFont("6x8", 2); // Fuente para el mensaje
-  g.drawString(lastMessage, 10, 10); // Mostrar solo el mensaje del backend
+  g.drawString("Señal: " + lastMessage, 10, 10); // Mensaje en y=10
 
   // Dibujar botones (en la parte inferior)
   // Botón 1: Ok (verde)
@@ -61,7 +40,6 @@ function redrawScreen() {
 
 // Feedback visual para un botón
 function buttonFeedback(x1, x2, y1, y2, isOkButton) {
-  // Cambiar color del botón (oscurecer)
   g.setColor(isOkButton ? 0 : 0.5, isOkButton ? 0.5 : 0, 0); // Verde oscuro para Ok, rojo oscuro para Post
   g.fillRect(x1, y1, x2, y2);
   g.setColor(1, 1, 1); // Texto blanco
@@ -92,10 +70,10 @@ Bangle.on("touch", function (button, xy) {
         166,
         isOkButton
       );
-      // Enviar mensaje y volver al reloj después de un pequeño retraso
+      // Enviar mensaje a la app después de un pequeño retraso
       setTimeout(function () {
         Bluetooth.println(JSON.stringify({ t: "notify", msg: message }));
-        Bangle.showClock(); // Volver al reloj
+        redrawScreen(); // Redibujar para restaurar los botones
       }, 200); // Retraso de 200ms para ver el feedback
     } else {
       console.log("Toque fuera de los botones"); // Depuración
@@ -105,12 +83,9 @@ Bangle.on("touch", function (button, xy) {
   }
 });
 
-// Configurar la app como un widget (segundo plano)
-Bangle.setUI("none"); // No toma control de la UI
+// Inicializar el manejador de eventos
 GB = onGB; // Registrar el manejador de eventos
-
-// Mostrar mensaje de inicio
-showStartupMessage();
+redrawScreen(); // Inicializar la interfaz
 
 // Asegurar que la Bangle.js esté en modo conectable
 NRF.setAdvertising({}, { connectable: true });
