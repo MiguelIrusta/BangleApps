@@ -23,6 +23,7 @@ function onGB(event) {
       Bangle.showClock(); // Volver al reloj
     } else {
       lastMessage = event.msg; // Guardar el mensaje
+      Bangle.loadWidgets(); // Cargar widgets para mostrar la interfaz
       redrawScreen(); // Redibujar todo
       console.log("Mensaje recibido:", event.msg); // Depuración
     }
@@ -107,7 +108,7 @@ Bangle.setUI("none"); // No toma control de la UI
 GB = onGB; // Registrar el manejador de eventos
 
 // Mostrar mensaje de inicio
-showStartupMessage();
+setTimeout(showStartupMessage, 100); // Retraso para evitar conflictos
 
 // Asegurar que la Bangle.js esté en modo conectable
 NRF.setAdvertising({}, { connectable: true });
