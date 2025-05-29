@@ -2,8 +2,8 @@
   "name": "Pleez App",
   "shortName":"Pleez",
   "icon": "app.png",
-  "version":"0.03.1",
-  "description": "This is a two button app that reads and writes through MQTT",
+  "version":"0.03",
+  "description": "Two button app that reads and writes through MQTT",
   "tags": "",
   "supports": ["BANGLEJS2"],
   "storage": [
