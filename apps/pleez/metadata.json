@@ -3,7 +3,7 @@
   "shortName":"Pleez",
   "icon": "app.png",
   "version":"0.06",
-  "description": "Pleez app: reads and writes through MQTT,running in back plain",
+  "description": "Pleez app: reads and writes through MQTT,running in back plain TYPO",
   "tags": "",
   "supports": ["BANGLEJS2"],
   "storage": [
