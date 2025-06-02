@@ -189,9 +189,16 @@ showInitialPopup();
 // Asegurar que la Bangle.js esté en modo conectable
 NRF.setAdvertising({}, { connectable: true });
 
-// FIXED: Correct the typos in setOptions
-// Disable activity events to avoid unnecessary logs and interference
+// FIXED: Properly disable activity tracking to avoid interference
+// Only use valid Bangle.setOptions parameters
 Bangle.setOptions({ 
-  hrmPollInterval: 10000,  // Fixed typo: was "hrmPollINterval"
-  stepCountInterval: 10000  // Fixed typo: was "stepCountlInterval0"
+  hrmPollInterval: 0  // Disable heart rate monitoring
 });
+
+// Stop step counting and other activity tracking
+if (Bangle.setStepCount) Bangle.setStepCount(0);
+
+// Remove any existing activity event listeners to prevent interference
+Bangle.removeAllListeners('step');
+Bangle.removeAllListeners('health');
+Bangle.removeAllListeners('HRM');
