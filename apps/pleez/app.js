@@ -48,18 +48,35 @@ function showApp() {
 
 // Función para manejar mensajes recibidos desde la app del teléfono
 function onGB(event) {
-  if (event.t === "notify") {
-    lastMessage = event.msg;
-    console.log("Mensaje recibido:", event.msg);
+  let parsedEvent;
+  
+  // Si event es una cadena, intentar parsearla como JSON
+  if (typeof event === 'string') {
+    try {
+      parsedEvent = JSON.parse(event);
+      console.log("JSON parseado:", parsedEvent);
+    } catch (e) {
+      console.log("Error parseando JSON:", e);
+      console.log("Mensaje recibido:", event);
+      return;
+    }
+  } else {
+    parsedEvent = event;
+  }
+  
+  if (parsedEvent.t === "notify") {
+    lastMessage = parsedEvent.msg;
+    console.log("Mensaje procesado:", parsedEvent.msg);
     
     // Si recibimos "FinTimer", ocultar la app
-    if (event.msg === "FinTimer") {
+    if (parsedEvent.msg === "FinTimer") {
       console.log("FinTimer recibido, ocultando app");
       goToBackground();
       return;
     }
     
     // Para cualquier otro mensaje, mostrar la app
+    console.log("Mostrando app, isAppVisible:", isAppVisible);
     if (!isAppVisible) {
       showApp();
     } else {
