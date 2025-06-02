@@ -189,5 +189,9 @@ showInitialPopup();
 // Asegurar que la Bangle.js esté en modo conectable
 NRF.setAdvertising({}, { connectable: true });
 
-// Desactivar eventos de actividad para evitar logs innecesarios
-Bangle.setOptions({ hrmPollInterval: 0, stepCountInterval: 0 });
+// FIXED: Correct the typos in setOptions
+// Disable activity events to avoid unnecessary logs and interference
+Bangle.setOptions({ 
+  hrmPollInterval: 10000,  // Fixed typo: was "hrmPollINterval"
+  stepCountInterval: 10000  // Fixed typo: was "stepCountlInterval0"
+});
