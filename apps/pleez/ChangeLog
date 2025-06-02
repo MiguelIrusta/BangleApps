@@ -8,3 +8,6 @@ Version 0.04:
 /*********************************/
 Version 0.05:
  *  App with pop up window, and back plain working
+/*********************************/
+Version 0.06:
+ *  Backend running but bad parsing, improving it
