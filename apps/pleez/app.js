@@ -48,40 +48,39 @@ function showApp() {
 
 // Función para manejar mensajes recibidos desde la app del teléfono
 function onGB(event) {
-  let parsedEvent;
+  // Enviar el evento crudo al Android
+  Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento GB recibido: " + JSON.stringify(event) }));
   
-  // Si event es una cadena, intentar parsearla como JSON
+  let parsedEvent;
   if (typeof event === 'string') {
     try {
       parsedEvent = JSON.parse(event);
-      console.log("JSON parseado:", parsedEvent);
+      Bluetooth.println(JSON.stringify({ t: "debug", msg: "JSON parseado: " + JSON.stringify(parsedEvent) }));
     } catch (e) {
-      console.log("Error parseando JSON:", e);
-      console.log("Mensaje recibido:", event);
+      Bluetooth.println(JSON.stringify({ t: "debug", msg: "Error parseando JSON: " + e.toString() }));
+      Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mensaje crudo: " + event }));
       return;
     }
   } else {
     parsedEvent = event;
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento ya es objeto: " + JSON.stringify(parsedEvent) }));
   }
   
-  if (parsedEvent.t === "notify") {
+  if (parsedEvent.t === "notify" && parsedEvent.msg) {
     lastMessage = parsedEvent.msg;
-    console.log("Mensaje procesado:", parsedEvent.msg);
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mensaje procesado: " + lastMessage }));
     
-    // Si recibimos "FinTimer", ocultar la app
-    if (parsedEvent.msg === "FinTimer") {
-      console.log("FinTimer recibido, ocultando app");
+    if (lastMessage === "FinTimer") {
+      Bluetooth.println(JSON.stringify({ t: "debug", msg: "FinTimer recibido, ocultando app" }));
       goToBackground();
       return;
     }
     
-    // Para cualquier otro mensaje, mostrar la app
-    console.log("Mostrando app, isAppVisible:", isAppVisible);
-    if (!isAppVisible) {
-      showApp();
-    } else {
-      redrawScreen(); // Si ya está visible, solo redibujar
-    }
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mostrando app, isAppVisible: " + isAppVisible }));
+    showApp();
+  } else {
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento no válido, esperado t:notify con msg" }));
+    redrawScreen(); // Si ya está visible, solo redibujar
   }
 }
 
