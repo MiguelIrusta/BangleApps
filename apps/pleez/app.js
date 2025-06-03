@@ -3,8 +3,11 @@ let lastMessage = "";
 let isAppVisible = false;
 let originalApp = null;
 
-// Enviar log al iniciar para confirmar que el código se ejecuta
+// Enviar log al iniciar
 Bluetooth.println(JSON.stringify({ t: "debug", msg: "App iniciada" }));
+
+// Confirmar que el manejador BLE está registrado
+Bluetooth.println(JSON.stringify({ t: "debug", msg: "Registrando manejador characteristicvaluechanged" }));
 
 // Función para mostrar popup inicial y luego ir al background
 function showInitialPopup() {
@@ -48,7 +51,8 @@ function showApp() {
 
 // Función para dibujar la pantalla
 function redrawScreen() {
-  g.clear();
+  g.reset();
+  g.clear(true); // Forzar limpieza completa
   g.setColor(0, 0, 1);
   g.fillRect(0, 0, 176, 176);
   
@@ -72,10 +76,9 @@ function redrawScreen() {
 
 // Capturar datos BLE crudos
 NRF.on('characteristicvaluechanged', function(event) {
-  let value = event.value; // Valor recibido en la característica
+  let value = event.value;
   let data = "";
   try {
-    // Convertir el buffer a string
     for (let i = 0; i < value.length; i++) {
       data += String.fromCharCode(value[i]);
     }
