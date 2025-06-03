@@ -3,6 +3,9 @@ let lastMessage = "";
 let isAppVisible = false;
 let originalApp = null;
 
+// Enviar log al iniciar para confirmar que el código se ejecuta
+Bluetooth.println(JSON.stringify({ t: "debug", msg: "App iniciada" }));
+
 // Función para mostrar popup inicial y luego ir al background
 function showInitialPopup() {
   g.clear();
@@ -67,54 +70,38 @@ function redrawScreen() {
   Bluetooth.println(JSON.stringify({ t: "debug", msg: "Pantalla redibujada" }));
 }
 
-// Función para manejar mensajes recibidos
-function onGB(event) {
-  Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento GB recibido: " + JSON.stringify(event) }));
-  
-  let parsedEvent;
-  if (typeof event === 'string') {
-    try {
-      parsedEvent = JSON.parse(event);
-      Bluetooth.println(JSON.stringify({ t: "debug", msg: "JSON parseado: " + JSON.stringify(parsedEvent) }));
-    } catch (e) {
-      Bluetooth.println(JSON.stringify({ t: "debug", msg: "Error parseando JSON: " + e.toString() }));
-      Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mensaje crudo: " + event }));
-      return;
-    }
-  } else {
-    parsedEvent = event;
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento ya es objeto: " + JSON.stringify(parsedEvent) }));
-  }
-  
-  if (parsedEvent.t === "notify" && parsedEvent.msg) {
-    lastMessage = parsedEvent.msg;
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mensaje procesado: " + lastMessage }));
-    
-    if (lastMessage === "FinTimer") {
-      Bluetooth.println(JSON.stringify({ t: "debug", msg: "FinTimer recibido, ocultando app" }));
-      goToBackground();
-      return;
-    }
-    
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mostrando app, isAppVisible: " + isAppVisible }));
-    showApp();
-  } else {
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento no válido, esperado t:notify con msg" }));
-  }
-}
-
-// Capturar datos BLE crudos para depuración
+// Capturar datos BLE crudos
 NRF.on('characteristicvaluechanged', function(event) {
-  Bluetooth.println(JSON.stringify({ t: "debug", msg: "Datos BLE recibidos: " + JSON.stringify(event) }));
+  let value = event.value; // Valor recibido en la característica
+  let data = "";
+  try {
+    // Convertir el buffer a string
+    for (let i = 0; i < value.length; i++) {
+      data += String.fromCharCode(value[i]);
+    }
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Datos BLE recibidos: " + data }));
+  } catch (e) {
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Error procesando datos BLE: " + e.toString() }));
+  }
 });
+
+// Manejador GB simplificado
+GB = function(event) {
+  Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento GB recibido: " + JSON.stringify(event) }));
+  try {
+    let parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
+    lastMessage = parsedEvent.msg || "Sin mensaje";
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mensaje procesado: " + lastMessage }));
+    showApp();
+  } catch (e) {
+    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Error en GB: " + e.toString() }));
+  }
+};
 
 // Guardar referencia a la app actual
 if (typeof global.currentApp !== 'undefined') {
   originalApp = global.currentApp;
 }
-
-// Registrar el manejador de eventos
-GB = onGB;
 
 // Asegurar modo conectable
 NRF.setAdvertising({}, { connectable: true });
