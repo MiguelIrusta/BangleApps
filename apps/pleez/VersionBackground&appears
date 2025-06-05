@@ -2,6 +2,7 @@
 let lastMessage = "";
 let isAppVisible = false;
 let hideTimeout = null;
+let clockInterval = null; // Moved to top for proper scope
 
 // Función para mostrar popup inicial
 function showInitialPopup() {
@@ -27,15 +28,75 @@ function showInitialPopup() {
 // Función para ocultar la pantalla (pero mantener la app activa)
 function hideApp() {
   isAppVisible = false;
-  g.clear();
-  g.flip();
-  // NO llamamos load() - mantenemos la app activa en background
+  showClock(); // Mostrar reloj en lugar de pantalla vacía
   console.log("App hidden but still active");
+}
+
+// Variable para controlar el intervalo del reloj
+let clockInterval = null;
+
+// Función para mostrar un reloj simple cuando la app está oculta
+function showClock() {
+  // Limpiar intervalo anterior si existe
+  if (clockInterval) {
+    clearInterval(clockInterval);
+  }
+  
+  function updateClock() {
+    if (isAppVisible) {
+      if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+      }
+      return; // No actualizar si la app está visible
+    }
+    
+    let now = new Date();
+    let hours = now.getHours().toString();
+    if (hours.length < 2) hours = "0" + hours;
+    let minutes = now.getMinutes().toString();
+    if (minutes.length < 2) minutes = "0" + minutes;
+    let seconds = now.getSeconds().toString();
+    if (seconds.length < 2) seconds = "0" + seconds;
+    
+    g.clear();
+    g.setColor(0, 0, 0); // Fondo negro
+    g.fillRect(0, 0, 176, 176);
+    
+    // Hora principal
+    g.setColor(1, 1, 1);
+    g.setFont("Vector", 30);
+    g.setFontAlign(0, 0);
+    g.drawString(hours + ":" + minutes, 88, 70);
+    
+    // Segundos más pequeños
+    g.setFont("Vector", 18);
+    g.drawString(seconds, 88, 100);
+    
+    // Indicador de que Pleez está activo
+    g.setColor(0, 0.5, 1);
+    g.setFont("6x8", 1);
+    g.drawString("Pleez Active", 88, 140);
+    
+    g.flip();
+  }
+  
+  // Actualizar inmediatamente
+  updateClock();
+  
+  // Configurar intervalo para actualizar cada segundo
+  clockInterval = setInterval(updateClock, 1000);
 }
 
 // Función para mostrar la app
 function showApp() {
   isAppVisible = true;
+  
+  // Limpiar intervalo del reloj si existe
+  if (clockInterval) {
+    clearInterval(clockInterval);
+    clockInterval = null;
+  }
   
   // Cancelar cualquier timeout de ocultación pendiente
   if (hideTimeout) {
@@ -46,7 +107,7 @@ function showApp() {
   redrawScreen();
   console.log("App shown");
   
-  // Auto-hide after 12 seconds to avoid needing scheduleAutoHide initially
+  // Auto-hide after 12 seconds
   hideTimeout = setTimeout(function() {
     if (isAppVisible) {
       hideApp();
@@ -55,7 +116,9 @@ function showApp() {
 }
 
 // Función para auto-ocultar después de un tiempo de inactividad
-function scheduleAutoHide(delay = 10000) { // 10 segundos por defecto
+function scheduleAutoHide(delay) {
+  if (typeof delay === 'undefined') delay = 10000; // 10 segundos por defecto
+  
   if (hideTimeout) {
     clearTimeout(hideTimeout);
   }
@@ -161,7 +224,6 @@ Bangle.on("touch", function (button, xy) {
   if (!isAppVisible) {
     // Si la app está oculta y hay un toque, mostrarla brevemente
     showApp();
-    scheduleAutoHide(5000); // Auto-ocultar en 5 segundos
     return;
   }
   
@@ -202,8 +264,10 @@ Bangle.on("touch", function (button, xy) {
       }, 150); // Reduced delay for faster response
     }
   } else {
-    // Toque fuera de botones - extender tiempo visible
-    scheduleAutoHide(10000);
+    // Toque fuera de botones - extender tiempo visible o hide if no scheduleAutoHide
+    if (typeof scheduleAutoHide === 'function') {
+      scheduleAutoHide(10000);
+    }
   }
 });
 
@@ -213,7 +277,6 @@ setWatch(function() {
     hideApp();
   } else {
     showApp();
-    scheduleAutoHide(10000);
   }
 }, BTN, { repeat: true, edge: "falling" });
 
