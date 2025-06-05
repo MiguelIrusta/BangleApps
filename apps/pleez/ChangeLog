@@ -11,3 +11,8 @@ Version 0.05:
 /*********************************/
 Version 0.06:
  *  Backend running but bad parsing, improving it
+/*********************************/
+Version 1.00:
+ *  Backend running and when not used goes to a simple clock
+ *  Buttons are touchable and answers arrives
+ *  The message arrives perfectly and is shown in the screen
