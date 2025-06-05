@@ -2,8 +2,8 @@
   "name": "Pleez App",
   "shortName":"Pleez",
   "icon": "app.png",
-  "version":"0.10",
-  "description": "Pleez app: reads and writes through MQTT,running in back plain logs to Kotlin",
+  "version":"1.00",
+  "description": "Pleez app: reads and writes through MQTT,running in background",
   "tags": "",
   "supports": ["BANGLEJS2"],
   "storage": [
