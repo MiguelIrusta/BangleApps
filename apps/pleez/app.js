@@ -1,120 +1,315 @@
 // Variable para almacenar el último mensaje recibido
 let lastMessage = "";
 let isAppVisible = false;
-let originalApp = null;
+let hideTimeout = null;
+let clockInterval = null; // Single declaration at the top
 
-// Enviar log al iniciar
-Bluetooth.println(JSON.stringify({ t: "debug", msg: "App iniciada" }));
-
-// Confirmar que el manejador BLE está registrado
-Bluetooth.println(JSON.stringify({ t: "debug", msg: "Registrando manejador characteristicvaluechanged" }));
-
-// Función para mostrar popup inicial y luego ir al background
+// Función para mostrar popup inicial
 function showInitialPopup() {
   g.clear();
-  g.setColor(0, 0, 0.8);
+  g.setColor(0, 0, 0.8); // Fondo azul oscuro
   g.fillRect(0, 0, 176, 176);
   
-  g.setColor(1, 1, 1);
+  g.setColor(1, 1, 1); // Texto blanco
   g.setFont("6x8", 2);
+  g.setFontAlign(0, 0); // Centrar automáticamente
   
-  let text1 = "Pleez will run in";
-  let text2 = "background now";
-  let w1 = g.stringWidth(text1);
-  let w2 = g.stringWidth(text2);
-  
-  g.drawString(text1, (176 - w1) / 2, 70);
-  g.drawString(text2, (176 - w2) / 2, 90);
+  g.drawString("Pleez ready", 88, 80);
+  g.drawString("Waiting for signals...", 88, 100);
   
   g.flip();
   
+  // Después de 2 segundos, ocultar la pantalla pero mantener la app activa
   setTimeout(function() {
-    goToBackground();
-  }, 3000);
+    hideApp();
+  }, 2000);
 }
 
-// Función para ir al background
-function goToBackground() {
+// Función para ocultar la pantalla (pero mantener la app activa)
+function hideApp() {
   isAppVisible = false;
-  if (originalApp) {
-    load(originalApp);
-  } else {
-    load();
+  showClock(); // Mostrar reloj en lugar de pantalla vacía
+  console.log("App hidden but still active");
+}
+
+// Función para mostrar un reloj simple cuando la app está oculta
+function showClock() {
+  // Limpiar intervalo anterior si existe
+  if (clockInterval) {
+    clearInterval(clockInterval);
+    clockInterval = null;
   }
+  
+  function updateClock() {
+    if (isAppVisible) {
+      if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+      }
+      return; // No actualizar si la app está visible
+    }
+    
+    let now = new Date();
+    let hours = now.getHours().toString();
+    if (hours.length < 2) hours = "0" + hours;
+    let minutes = now.getMinutes().toString();
+    if (minutes.length < 2) minutes = "0" + minutes;
+    let seconds = now.getSeconds().toString();
+    if (seconds.length < 2) seconds = "0" + seconds;
+    
+    g.clear();
+    g.setColor(0, 0, 0); // Fondo negro
+    g.fillRect(0, 0, 176, 176);
+    
+    // Hora principal
+    g.setColor(1, 1, 1);
+    g.setFont("Vector", 30);
+    g.setFontAlign(0, 0);
+    g.drawString(hours + ":" + minutes, 88, 70);
+    
+    // Segundos más pequeños
+    g.setFont("Vector", 18);
+    g.drawString(seconds, 88, 100);
+    
+    // Indicador de que Pleez está activo
+    g.setColor(0, 0.5, 1);
+    g.setFont("6x8", 1);
+    g.drawString("Pleez Active", 88, 140);
+    
+    g.flip();
+  }
+  
+  // Actualizar inmediatamente
+  updateClock();
+  
+  // Configurar intervalo para actualizar cada segundo
+  clockInterval = setInterval(updateClock, 1000);
 }
 
 // Función para mostrar la app
 function showApp() {
   isAppVisible = true;
+  
+  // Limpiar intervalo del reloj si existe
+  if (clockInterval) {
+    clearInterval(clockInterval);
+    clockInterval = null;
+  }
+  
+  // Cancelar cualquier timeout de ocultación pendiente
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+  
+  // CRITICAL: Ensure screen is unlocked and touchable
+  Bangle.setLocked(false);
+  
   redrawScreen();
+  console.log("App shown - buttons available until pressed or FinTimer");
+  
+  // NO auto-hide timer - app stays visible until button pressed or FinTimer
 }
 
-// Función para dibujar la pantalla
+// Función para auto-ocultar después de un tiempo de inactividad
+function scheduleAutoHide(delay) {
+  if (typeof delay === 'undefined') delay = 20000; // 20 segundos por defecto
+  
+  // Clear any existing timeout
+  if (hideTimeout) {
+    clearTimeout(hideTimeout);
+    hideTimeout = null;
+  }
+  
+  hideTimeout = setTimeout(function() {
+    if (isAppVisible) {
+      hideApp();
+    }
+  }, delay);
+}
+
+// Función para manejar mensajes recibidos desde la app del teléfono
+function onGB(event) {
+  console.log("GB event received:", event);
+  
+  if (event.t === "notify") {
+    lastMessage = event.msg;
+    console.log("Mensaje procesado:", event.msg);
+    
+    // Si recibimos "FinTimer", ocultar la app
+    if (event.msg === "FinTimer") {
+      console.log("FinTimer recibido, ocultando app");
+      hideApp();
+      return;
+    }
+    
+    // Vibrar cuando llega un mensaje (excepto FinTimer)
+    try {
+      Bangle.buzz(500); // Vibrar por 500ms
+      console.log("Vibration sent");
+    } catch (e) {
+      console.log("Vibration error:", e);
+    }
+    
+    // Para cualquier otro mensaje, mostrar la app
+    showApp();
+  }
+}
+
+// Dibujar la pantalla completa (mensaje y botones)
 function redrawScreen() {
-  g.reset();
-  g.clear(true); // Forzar limpieza completa
-  g.setColor(0, 0, 1);
+  // Force unlock before drawing
+  Bangle.setLocked(false);
+  
+  g.clear();
+  g.setColor(0, 0, 1); // Fondo azul
   g.fillRect(0, 0, 176, 176);
   
+  // Mostrar mensaje en la parte superior
   g.setColor(1, 1, 1);
   g.setFont("6x8", 2);
-  g.drawString("Señal: " + lastMessage, 10, 10);
+  g.setFontAlign(-1, -1); // Alineación izquierda-superior
   
-  g.setColor(0, 1, 0);
-  g.fillRect(10, 80, 86, 166);
-  g.setColor(1, 0, 0);
-  g.fillRect(90, 80, 166, 166);
+  // Dividir el mensaje en líneas si es muy largo
+  let displayMsg = "Señal: " + lastMessage;
+  if (g.stringWidth(displayMsg) > 156) { // Dejar margen
+    displayMsg = "Señal:\n" + lastMessage;
+  }
+  g.drawString(displayMsg, 10, 10);
   
-  g.setColor(1, 1, 1);
-  g.setFont("6x8", 3);
-  g.drawString("Ok", 20, 110);
-  g.drawString("Post", 95, 110);
+  // Dibujar botones
+  drawButtons();
   
   g.flip();
-  Bluetooth.println(JSON.stringify({ t: "debug", msg: "Pantalla redibujada" }));
 }
 
-// Capturar datos BLE crudos
-NRF.on('characteristicvaluechanged', function(event) {
-  let value = event.value;
-  let data = "";
-  try {
-    for (let i = 0; i < value.length; i++) {
-      data += String.fromCharCode(value[i]);
+// Función separada para dibujar botones
+function drawButtons() {
+  // Botón Ok (verde)
+  g.setColor(0, 0.8, 0);
+  g.fillRect(10, 100, 86, 150);
+  
+  // Botón Postpone (rojo)
+  g.setColor(0.8, 0, 0);
+  g.fillRect(90, 100, 166, 150);
+  
+  // Texto de los botones
+  g.setColor(1, 1, 1);
+  g.setFont("6x8", 3);
+  g.setFontAlign(0, 0); // Centrado
+  g.drawString("OK", 48, 125);
+  g.drawString("WAIT", 128, 125);
+}
+
+// Feedback visual para botones
+function buttonFeedback(isOkButton) {
+  let x1 = isOkButton ? 10 : 90;
+  let x2 = isOkButton ? 86 : 166;
+  
+  // Cambiar color temporalmente para feedback
+  g.setColor(1, 1, 1); // Color blanco para feedback
+  g.fillRect(x1, 100, x2, 150);
+  
+  g.setColor(0, 0, 0); // Texto negro para contraste
+  g.setFont("6x8", 3);
+  g.setFontAlign(0, 0);
+  g.drawString(isOkButton ? "OK" : "WAIT", isOkButton ? 48 : 128, 125);
+  g.flip();
+}
+
+// Manejar toques en la pantalla
+Bangle.on("touch", function (button, xy) {
+  // Si la app está oculta, NO hacer nada (no mostrar la app)
+  // Solo se muestra cuando llega un mensaje
+  if (!isAppVisible) {
+    console.log("App hidden - touch ignored");
+    return;
+  }
+  
+  console.log("Touch detected at: x=" + xy.x + ", y=" + xy.y);
+  
+  // Verificar si el toque está en el área de botones (y entre 100-150)
+  if (xy.y >= 100 && xy.y <= 150) {
+    let message = null;
+    let isOkButton = false;
+    
+    // Botón OK (izquierda: x entre 10-86)
+    if (xy.x >= 10 && xy.x <= 86) {
+      message = "Ok";
+      isOkButton = true;
+      console.log("OK button pressed!");
+    } 
+    // Botón WAIT (derecha: x entre 90-166)
+    else if (xy.x >= 90 && xy.x <= 166) {
+      message = "Postpone";
+      isOkButton = false;
+      console.log("WAIT button pressed!");
     }
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Datos BLE recibidos: " + data }));
-  } catch (e) {
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Error procesando datos BLE: " + e.toString() }));
+    
+    // Si se presionó un botón válido
+    if (message) {
+      console.log("Sending message:", message);
+      
+      // Mostrar feedback visual inmediato
+      buttonFeedback(isOkButton);
+      
+      // Enviar respuesta por Bluetooth
+      try {
+        Bluetooth.println(JSON.stringify({ t: "notify", msg: message }));
+        console.log("Bluetooth message sent successfully:", message);
+        
+        // Ocultar app después de un breve delay
+        setTimeout(function() {
+          console.log("Hiding app after button press");
+          hideApp();
+        }, 500);
+        
+      } catch (e) {
+        console.log("Error sending Bluetooth message:", e);
+      }
+    } else {
+      console.log("Touch outside button areas");
+    }
+  } else {
+    console.log("Touch outside button area (y=" + xy.y + ")");
   }
 });
 
-// Manejador GB simplificado
-GB = function(event) {
-  Bluetooth.println(JSON.stringify({ t: "debug", msg: "Evento GB recibido: " + JSON.stringify(event) }));
-  try {
-    let parsedEvent = typeof event === 'string' ? JSON.parse(event) : event;
-    lastMessage = parsedEvent.msg || "Sin mensaje";
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Mensaje procesado: " + lastMessage }));
+// Manejar botón físico para mostrar/ocultar
+setWatch(function() {
+  if (isAppVisible) {
+    hideApp();
+  } else {
     showApp();
-  } catch (e) {
-    Bluetooth.println(JSON.stringify({ t: "debug", msg: "Error en GB: " + e.toString() }));
   }
-};
+}, BTN, { repeat: true, edge: "falling" });
 
-// Guardar referencia a la app actual
-if (typeof global.currentApp !== 'undefined') {
-  originalApp = global.currentApp;
-}
+// Registrar el manejador de eventos Gadgetbridge
+GB = onGB;
 
-// Asegurar modo conectable
+// Configuración inicial
 NRF.setAdvertising({}, { connectable: true });
 
-// Desactivar funciones que puedan interferir
-Bangle.setOptions({ hrmPollInterval: 0 });
+// Deshabilitar seguimiento de actividad para evitar interferencias
+Bangle.setOptions({ 
+  hrmPollInterval: 0,
+  wakeOnBTN1: false, // Evitar despertar accidental
+  wakeOnBTN2: true,  // Permitir despertar con BTN2
+  wakeOnBTN3: false,
+  wakeOnTouch: true, // Permitir despertar con toque
+  lockTimeout: 0,    // Disable screen lock completely
+  backlightTimeout: 0, // Keep screen always on when app is visible
+  lcdPowerTimeout: 0   // Prevent LCD from turning off
+});
+
+// Force unlock the screen at startup
+Bangle.setLocked(false);
+
 if (Bangle.setStepCount) Bangle.setStepCount(0);
 Bangle.removeAllListeners('step');
 Bangle.removeAllListeners('health');
 Bangle.removeAllListeners('HRM');
 
 // Mostrar popup inicial
+console.log("Pleez app started");
 showInitialPopup();
