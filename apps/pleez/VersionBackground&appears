@@ -45,6 +45,13 @@ function showApp() {
   
   redrawScreen();
   console.log("App shown");
+  
+  // Auto-hide after 12 seconds to avoid needing scheduleAutoHide initially
+  hideTimeout = setTimeout(function() {
+    if (isAppVisible) {
+      hideApp();
+    }
+  }, 12000);
 }
 
 // Función para auto-ocultar después de un tiempo de inactividad
@@ -79,7 +86,15 @@ function onGB(event) {
     showApp();
     
     // Programar auto-ocultación después de 15 segundos de inactividad
-    scheduleAutoHide(15000);
+    if (typeof scheduleAutoHide === 'function') {
+      scheduleAutoHide(15000);
+    } else {
+      console.log("scheduleAutoHide function not available yet");
+      // Fallback: hide after 15 seconds
+      setTimeout(function() {
+        if (isAppVisible) hideApp();
+      }, 15000);
+    }
   }
 }
 
@@ -179,12 +194,12 @@ Bangle.on("touch", function (button, xy) {
           // Ocultar app después de enviar respuesta
           setTimeout(function() {
             hideApp();
-          }, 1000);
+          }, 500); // Reduced delay
           
         } catch (e) {
           console.log("Error sending response:", e);
         }
-      }, 300);
+      }, 150); // Reduced delay for faster response
     }
   } else {
     // Toque fuera de botones - extender tiempo visible
@@ -200,7 +215,7 @@ setWatch(function() {
     showApp();
     scheduleAutoHide(10000);
   }
-}, BTN2, { repeat: true, edge: "falling" });
+}, BTN, { repeat: true, edge: "falling" });
 
 // Registrar el manejador de eventos Gadgetbridge
 GB = onGB;
