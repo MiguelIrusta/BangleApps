@@ -16,3 +16,6 @@ Version 1.00:
  *  Backend running and when not used goes to a simple clock
  *  Buttons are touchable and answers arrives
  *  The message arrives perfectly and is shown in the screen
+/*********************************/
+Version 1.01:
+ *  Added TimerName in return to help backend
