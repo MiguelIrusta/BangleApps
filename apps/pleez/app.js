@@ -255,7 +255,7 @@ Bangle.on("touch", function (button, xy) {
       
       // Enviar respuesta por Bluetooth
       try {
-        Bluetooth.println(JSON.stringify({ t: "notify", msg: message }));
+        Bluetooth.println(JSON.stringify({ t: "notify", msg: message, timerName: lastMessage}));
         console.log("Bluetooth message sent successfully:", message);
         
         // Ocultar app después de un breve delay
