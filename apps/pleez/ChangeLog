@@ -23,3 +23,6 @@ Version 1.01:
 Version 1.10:
  *  Introduced a query of messages.
  *  Added a button to pass through all messages.
+/*********************************/
+Version 1.20:
+ *  Change the timmers saving to keep name and close vector when pressing from FrontEnd
