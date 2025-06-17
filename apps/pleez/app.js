@@ -95,8 +95,16 @@ function showClock() {
 
 // Función para añadir mensaje a la cola
 function addMessageToQueue(message) {
-  console.log("Adding message to queue:", message);
-  messageQueue.push(message);
+  // Limpiar comillas si las tiene
+  let cleanMessage = message;
+  if (cleanMessage.startsWith('"') && cleanMessage.endsWith('"')) {
+    cleanMessage = cleanMessage.slice(1, -1); // Quitar primera y última comilla
+  }
+  // También limpiar comillas escapadas
+  cleanMessage = cleanMessage.replace(/\\"/g, '"');
+  
+  console.log("Adding message to queue:", cleanMessage);
+  messageQueue.push(cleanMessage);
   console.log("Queue now has", messageQueue.length, "messages");
 }
 
@@ -131,6 +139,71 @@ function removeCurrentMessage() {
   return messageQueue.length > 0;
 }
 
+// Función para remover un mensaje específico por nombre
+function removeMessageByName(timerName) {
+  let foundIndex = -1;
+  
+  // Buscar el mensaje en la cola
+  for (let i = 0; i < messageQueue.length; i++) {
+    if (messageQueue[i] === timerName) {
+      foundIndex = i;
+      break;
+    }
+  }
+  
+  if (foundIndex === -1) {
+    console.log("Timer not found in queue:", timerName);
+    return messageQueue.length > 0;
+  }
+  
+  // Remover el mensaje específico
+  let removedMessage = messageQueue.splice(foundIndex, 1)[0];
+  console.log("Removed specific message:", removedMessage);
+  
+  // Ajustar índice actual si es necesario
+  if (foundIndex < currentMessageIndex) {
+    // Si removimos un mensaje antes del actual, decrementar índice
+    currentMessageIndex--;
+  } else if (foundIndex === currentMessageIndex) {
+    // Si removimos el mensaje actual, ajustar índice
+    if (currentMessageIndex >= messageQueue.length) {
+      currentMessageIndex = 0;
+    }
+  }
+  // Si removimos después del actual, no hay que ajustar nada
+  
+  console.log("Queue now has", messageQueue.length, "messages");
+  return messageQueue.length > 0;
+}
+
+// Función para reiniciar el servicio (limpiar todo)
+function restartService() {
+  console.log("Restarting service - clearing all messages");
+  messageQueue = [];
+  currentMessageIndex = 0;
+  
+  if (isAppVisible) {
+    hideApp();
+  }
+  
+  // Mostrar brevemente mensaje de reinicio
+  g.clear();
+  g.setColor(0, 0.5, 0); // Fondo verde oscuro
+  g.fillRect(0, 0, 176, 176);
+  
+  g.setColor(1, 1, 1); // Texto blanco
+  g.setFont("6x8", 2);
+  g.setFontAlign(0, 0);
+  g.drawString("Service Restarted", 88, 80);
+  g.drawString("Ready for signals...", 88, 100);
+  g.flip();
+  
+  // Volver al reloj después de 1 segundo
+  setTimeout(function() {
+    showClock();
+  }, 1000);
+}
+
 // Función para mostrar la app
 function showApp() {
   isAppVisible = true;
@@ -161,9 +234,35 @@ function onGB(event) {
   if (event.t === "notify") {
     console.log("Mensaje procesado:", event.msg);
     
-    // Si recibimos "FinTimer", solo ocultar si no hay más mensajes
+    // Comando para reiniciar el servicio
+    if (event.msg === "restartService") {
+      console.log("Restart service command received");
+      restartService();
+      return;
+    }
+    
+    // Si recibimos "FinTimer:nombreTimer", remover solo ese timer específico
+    if (event.msg.startsWith("FinTimer:")) {
+      let timerName = event.msg.substring(9); // Quitar "FinTimer:"
+      console.log("FinTimer recibido para timer específico:", timerName);
+      
+      let hasMoreMessages = removeMessageByName(timerName);
+      
+      if (isAppVisible) {
+        if (hasMoreMessages) {
+          console.log("Hay más mensajes pendientes, actualizando vista");
+          redrawScreen();
+        } else {
+          console.log("No hay más mensajes pendientes, ocultando app");
+          hideApp();
+        }
+      }
+      return;
+    }
+    
+    // Si recibimos "FinTimer" solo (compatibilidad con versión anterior)
     if (event.msg === "FinTimer") {
-      console.log("FinTimer recibido");
+      console.log("FinTimer genérico recibido");
       if (messageQueue.length === 0) {
         console.log("No hay mensajes pendientes, ocultando app");
         hideApp();
