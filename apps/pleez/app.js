@@ -1,8 +1,9 @@
-// Variable para almacenar el último mensaje recibido
-let lastMessage = "";
+// Variable para almacenar las notificaciones en cola
+let messageQueue = [];
+let currentMessageIndex = 0;
 let isAppVisible = false;
 let hideTimeout = null;
-let clockInterval = null; // Single declaration at the top
+let clockInterval = null;
 
 // Función para mostrar popup inicial
 function showInitialPopup() {
@@ -76,6 +77,12 @@ function showClock() {
     g.setFont("6x8", 1);
     g.drawString("Pleez Active", 88, 140);
     
+    // Mostrar contador de mensajes pendientes si los hay
+    if (messageQueue.length > 0) {
+      g.setColor(1, 0.5, 0);
+      g.drawString("(" + messageQueue.length + " pending)", 88, 155);
+    }
+    
     g.flip();
   }
   
@@ -84,6 +91,44 @@ function showClock() {
   
   // Configurar intervalo para actualizar cada segundo
   clockInterval = setInterval(updateClock, 1000);
+}
+
+// Función para añadir mensaje a la cola
+function addMessageToQueue(message) {
+  console.log("Adding message to queue:", message);
+  messageQueue.push(message);
+  console.log("Queue now has", messageQueue.length, "messages");
+}
+
+// Función para obtener el mensaje actual
+function getCurrentMessage() {
+  if (messageQueue.length === 0) return "";
+  if (currentMessageIndex >= messageQueue.length) currentMessageIndex = 0;
+  return messageQueue[currentMessageIndex];
+}
+
+// Función para pasar al siguiente mensaje (circular)
+function nextMessage() {
+  if (messageQueue.length === 0) return false;
+  currentMessageIndex = (currentMessageIndex + 1) % messageQueue.length;
+  console.log("Switched to message", currentMessageIndex + 1, "of", messageQueue.length);
+  return true;
+}
+
+// Función para remover el mensaje actual de la cola
+function removeCurrentMessage() {
+  if (messageQueue.length === 0) return false;
+  
+  let removedMessage = messageQueue.splice(currentMessageIndex, 1)[0];
+  console.log("Removed message:", removedMessage);
+  
+  // Ajustar índice si es necesario
+  if (currentMessageIndex >= messageQueue.length) {
+    currentMessageIndex = 0;
+  }
+  
+  console.log("Queue now has", messageQueue.length, "messages");
+  return messageQueue.length > 0;
 }
 
 // Función para mostrar la app
@@ -107,25 +152,6 @@ function showApp() {
   
   redrawScreen();
   console.log("App shown - buttons available until pressed or FinTimer");
-  
-  // NO auto-hide timer - app stays visible until button pressed or FinTimer
-}
-
-// Función para auto-ocultar después de un tiempo de inactividad
-function scheduleAutoHide(delay) {
-  if (typeof delay === 'undefined') delay = 20000; // 20 segundos por defecto
-  
-  // Clear any existing timeout
-  if (hideTimeout) {
-    clearTimeout(hideTimeout);
-    hideTimeout = null;
-  }
-  
-  hideTimeout = setTimeout(function() {
-    if (isAppVisible) {
-      hideApp();
-    }
-  }, delay);
 }
 
 // Función para manejar mensajes recibidos desde la app del teléfono
@@ -133,17 +159,24 @@ function onGB(event) {
   console.log("GB event received:", event);
   
   if (event.t === "notify") {
-    lastMessage = event.msg;
     console.log("Mensaje procesado:", event.msg);
     
-    // Si recibimos "FinTimer", ocultar la app
+    // Si recibimos "FinTimer", solo ocultar si no hay más mensajes
     if (event.msg === "FinTimer") {
-      console.log("FinTimer recibido, ocultando app");
-      hideApp();
+      console.log("FinTimer recibido");
+      if (messageQueue.length === 0) {
+        console.log("No hay mensajes pendientes, ocultando app");
+        hideApp();
+      } else {
+        console.log("Hay", messageQueue.length, "mensajes pendientes, manteniendo app visible");
+      }
       return;
     }
     
-    // Vibrar cuando llega un mensaje (excepto FinTimer)
+    // Añadir mensaje a la cola
+    addMessageToQueue(event.msg);
+    
+    // Vibrar cuando llega un mensaje nuevo (siempre)
     try {
       Bangle.buzz(500); // Vibrar por 500ms
       console.log("Vibration sent");
@@ -151,8 +184,13 @@ function onGB(event) {
       console.log("Vibration error:", e);
     }
     
-    // Para cualquier otro mensaje, mostrar la app
-    showApp();
+    // Si la app no está visible, mostrarla
+    if (!isAppVisible) {
+      showApp();
+    } else {
+      // Si ya está visible, solo redibujar para mostrar el contador actualizado
+      redrawScreen();
+    }
   }
 }
 
@@ -165,62 +203,94 @@ function redrawScreen() {
   g.setColor(0, 0, 1); // Fondo azul
   g.fillRect(0, 0, 176, 176);
   
-  // Mostrar mensaje en la parte superior
+  // Mostrar mensaje actual en la parte superior (sin "Señal:")
   g.setColor(1, 1, 1);
   g.setFont("6x8", 2);
   g.setFontAlign(-1, -1); // Alineación izquierda-superior
   
-  // Dividir el mensaje en líneas si es muy largo
-  let displayMsg = "Señal: " + lastMessage;
-  if (g.stringWidth(displayMsg) > 156) { // Dejar margen
-    displayMsg = "Señal:\n" + lastMessage;
-  }
-  g.drawString(displayMsg, 10, 10);
+  let currentMsg = getCurrentMessage();
+  g.drawString(currentMsg, 10, 10);
   
-  // Dibujar botones
+  // Mostrar contador de mensajes si hay más de uno
+  if (messageQueue.length > 1) {
+    g.setColor(1, 1, 0); // Amarillo para el contador
+    g.setFont("6x8", 1);
+    g.setFontAlign(1, -1); // Alineación derecha-superior
+    g.drawString((currentMessageIndex + 1) + "/" + messageQueue.length, 166, 10);
+  }
+  
+  // Dibujar botones principales (más grandes)
   drawButtons();
+  
+  // Dibujar botón de navegación si hay múltiples mensajes (abajo)
+  if (messageQueue.length > 1) {
+    drawNavigationButton();
+  }
   
   g.flip();
 }
 
-// Función separada para dibujar botones
+// Función separada para dibujar botones principales (más grandes)
 function drawButtons() {
-  // Botón Ok (verde)
+  // Botón Ok (verde) - más grande
   g.setColor(0, 0.8, 0);
-  g.fillRect(10, 100, 86, 150);
+  g.fillRect(10, 60, 86, 120);
   
-  // Botón Postpone (rojo)
+  // Botón Postpone (rojo) - más grande
   g.setColor(0.8, 0, 0);
-  g.fillRect(90, 100, 166, 150);
+  g.fillRect(90, 60, 166, 120);
   
   // Texto de los botones
   g.setColor(1, 1, 1);
   g.setFont("6x8", 3);
   g.setFontAlign(0, 0); // Centrado
-  g.drawString("OK", 48, 125);
-  g.drawString("WAIT", 128, 125);
+  g.drawString("OK", 48, 90);
+  g.drawString("WAIT", 128, 90);
+}
+
+// Función para dibujar botón de navegación (abajo)
+function drawNavigationButton() {
+  // Botón de navegación (centrado abajo)
+  g.setColor(0.5, 0.5, 0.5);
+  g.fillRect(10, 140, 166, 166);
+  
+  // Texto del botón de navegación
+  g.setColor(1, 1, 1);
+  g.setFont("6x8", 2);
+  g.setFontAlign(0, 0);
+  g.drawString("NEXT MESSAGE", 88, 153);
 }
 
 // Feedback visual para botones
-function buttonFeedback(isOkButton) {
-  let x1 = isOkButton ? 10 : 90;
-  let x2 = isOkButton ? 86 : 166;
+function buttonFeedback(buttonType) {
+  let x1, x2, y1, y2, text, fontSize;
+  
+  switch(buttonType) {
+    case "ok":
+      x1 = 10; x2 = 86; y1 = 60; y2 = 120; text = "OK"; fontSize = 3;
+      break;
+    case "wait":
+      x1 = 90; x2 = 166; y1 = 60; y2 = 120; text = "WAIT"; fontSize = 3;
+      break;
+    case "next":
+      x1 = 10; x2 = 166; y1 = 140; y2 = 166; text = "NEXT MESSAGE"; fontSize = 2;
+      break;
+  }
   
   // Cambiar color temporalmente para feedback
   g.setColor(1, 1, 1); // Color blanco para feedback
-  g.fillRect(x1, 100, x2, 150);
+  g.fillRect(x1, y1, x2, y2);
   
   g.setColor(0, 0, 0); // Texto negro para contraste
-  g.setFont("6x8", 3);
+  g.setFont("6x8", fontSize);
   g.setFontAlign(0, 0);
-  g.drawString(isOkButton ? "OK" : "WAIT", isOkButton ? 48 : 128, 125);
+  g.drawString(text, (x1 + x2) / 2, (y1 + y2) / 2);
   g.flip();
 }
 
 // Manejar toques en la pantalla
 Bangle.on("touch", function (button, xy) {
-  // Si la app está oculta, NO hacer nada (no mostrar la app)
-  // Solo se muestra cuando llega un mensaje
+  // Si la app está oculta, NO hacer nada
   if (!isAppVisible) {
     console.log("App hidden - touch ignored");
     return;
@@ -228,50 +298,70 @@ Bangle.on("touch", function (button, xy) {
   
   console.log("Touch detected at: x=" + xy.x + ", y=" + xy.y);
   
-  // Verificar si el toque está en el área de botones (y entre 100-150)
-  if (xy.y >= 100 && xy.y <= 150) {
+  // Botón de navegación (si hay múltiples mensajes)
+  if (messageQueue.length > 1 && xy.y >= 140 && xy.y <= 166) {
+    console.log("NEXT button pressed!");
+    buttonFeedback("next");
+    setTimeout(function() {
+      nextMessage();
+      redrawScreen();
+    }, 200);
+    return;
+  }
+  
+  // Botones principales (OK/WAIT) - nueva posición
+  if (xy.y >= 60 && xy.y <= 120) {
     let message = null;
-    let isOkButton = false;
+    let buttonType = null;
     
-    // Botón OK (izquierda: x entre 10-86)
+    // Botón OK (izquierda)
     if (xy.x >= 10 && xy.x <= 86) {
       message = "Ok";
-      isOkButton = true;
+      buttonType = "ok";
       console.log("OK button pressed!");
     } 
-    // Botón WAIT (derecha: x entre 90-166)
+    // Botón WAIT (derecha)
     else if (xy.x >= 90 && xy.x <= 166) {
       message = "Postpone";
-      isOkButton = false;
+      buttonType = "wait";
       console.log("WAIT button pressed!");
     }
     
     // Si se presionó un botón válido
-    if (message) {
+    if (message && buttonType) {
       console.log("Sending message:", message);
       
       // Mostrar feedback visual inmediato
-      buttonFeedback(isOkButton);
+      buttonFeedback(buttonType);
       
       // Enviar respuesta por Bluetooth
       try {
-        Bluetooth.println(JSON.stringify({ t: "notify", msg: message, timerName: lastMessage}));
+        Bluetooth.println(JSON.stringify({ 
+          t: "notify", 
+          msg: message, 
+          timerName: getCurrentMessage()
+        }));
         console.log("Bluetooth message sent successfully:", message);
         
-        // Ocultar app después de un breve delay
+        // Remover mensaje actual de la cola
         setTimeout(function() {
-          console.log("Hiding app after button press");
-          hideApp();
+          let hasMoreMessages = removeCurrentMessage();
+          
+          if (hasMoreMessages) {
+            // Si hay más mensajes, mostrar el siguiente
+            console.log("More messages available, showing next");
+            redrawScreen();
+          } else {
+            // Si no hay más mensajes, ocultar app
+            console.log("No more messages, hiding app");
+            hideApp();
+          }
         }, 500);
         
       } catch (e) {
         console.log("Error sending Bluetooth message:", e);
       }
-    } else {
-      console.log("Touch outside button areas");
     }
-  } else {
-    console.log("Touch outside button area (y=" + xy.y + ")");
   }
 });
 
@@ -311,5 +401,5 @@ Bangle.removeAllListeners('health');
 Bangle.removeAllListeners('HRM');
 
 // Mostrar popup inicial
-console.log("Pleez app started");
+console.log("Pleez app with message queue started");
 showInitialPopup();
