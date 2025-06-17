@@ -19,3 +19,7 @@ Version 1.00:
 /*********************************/
 Version 1.01:
  *  Added TimerName in return to help backend
+/*********************************/
+Version 1.10:
+ *  Introduced a query of messages.
+ *  Added a button to pass through all messages.
